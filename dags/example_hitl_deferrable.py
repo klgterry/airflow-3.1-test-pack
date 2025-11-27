@@ -1,12 +1,35 @@
-
+from __future__ import annotations
 from datetime import datetime
 from airflow.decorators import dag, task
 
-@dag(dag_id="example_hitl_deferrable", start_date=datetime(2025,1,1), schedule=None, catchup=False)
+# Semicon simulation scenario (dummy, no real external systems):
+# STEP1_CONSUME          : consume Kafka-like message
+# STEP2_PARSE            : parse equipment/lot/period/filter
+# STEP3_STORE_MSG_DB     : store message meta to PostgreSQL (dummy)
+# STEP4_DOWNLOAD         : connect to equipment and download data (dummy)
+# STEP5_UPLOAD_S3        : upload data to S3 (dummy)
+# STEP6_UPDATE_STATUS_DB : update DB status (dummy)
+# STEP7_NOTIFY           : optional notifier
+# STEP8_HITL             : optional human approval / branching
+
+
+@dag(
+    dag_id="example_hitl_deferrable",
+    start_date=datetime(2025, 1, 1),
+    schedule=None,
+    catchup=False,
+    tags=["semicon", "hitl"],
+)
 def example_hitl_deferrable():
     @task
-    def run():
-        print("Running example_hitl_deferrable")
-    run()
+    def wait_for_human():
+        print("[STEP8_HITL] would wait (deferrable) for human approval in real env")
+        print("[HITL] here we just assume approved immediately")
+
+    @task
+    def run_reprocess():
+        print("[EXEC] run reprocess after 'approval' (dummy)")
+
+    wait_for_human() >> run_reprocess()
 
 dag = example_hitl_deferrable()

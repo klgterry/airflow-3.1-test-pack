@@ -1,30 +1,39 @@
-
 from __future__ import annotations
 from datetime import datetime
-
 from airflow.decorators import dag, task
 
+# Semicon simulation scenario (dummy, no real external systems):
+# STEP1_CONSUME          : consume Kafka-like message
+# STEP2_PARSE            : parse equipment/lot/period/filter
+# STEP3_STORE_MSG_DB     : store message meta to PostgreSQL (dummy)
+# STEP4_DOWNLOAD         : connect to equipment and download data (dummy)
+# STEP5_UPLOAD_S3        : upload data to S3 (dummy)
+# STEP6_UPDATE_STATUS_DB : update DB status (dummy)
+# STEP7_NOTIFY           : optional notifier
+# STEP8_HITL             : optional human approval / branching
+
+
+import random
 
 @dag(
     dag_id="example_notifier_slack",
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    tags=["notifier", "slack"],
+    tags=["semicon", "notifier"],
 )
 def example_notifier_slack():
-    """Basic notifier pattern.
-
-    실제 Slack 연동은 Slack webhook / provider 설정 후,
-    이 DAG의 실패를 on_failure_callback에 연결해 테스트할 수 있다.
-    여기서는 단순히 의도적으로 실패하는 태스크만 제공한다.
-    """ 
-
     @task
-    def fail_task():
-        raise RuntimeError("Intentional failure for notifier test")
+    def download():
+        msg_id = "kafka-err-001"
+        equipment_id = "TOOL_A01"
+        r = random.random()
+        print(f"[STEP4_DOWNLOAD] equipment={equipment_id}, random={r}")
+        if r < 0.7:
+            print("[ERROR] download failed, would trigger Slack in real env")
+            raise RuntimeError("Simulated download failure")
+        print("[OK] download succeeded")
 
-    fail_task()
-
+    download()
 
 dag = example_notifier_slack()

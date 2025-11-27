@@ -1,49 +1,51 @@
-
 from __future__ import annotations
 from datetime import datetime
-import time
-
 from airflow.decorators import dag, task
-from airflow.utils.task_group import TaskGroup
 
+# Semicon simulation scenario (dummy, no real external systems):
+# STEP1_CONSUME          : consume Kafka-like message
+# STEP2_PARSE            : parse equipment/lot/period/filter
+# STEP3_STORE_MSG_DB     : store message meta to PostgreSQL (dummy)
+# STEP4_DOWNLOAD         : connect to equipment and download data (dummy)
+# STEP5_UPLOAD_S3        : upload data to S3 (dummy)
+# STEP6_UPDATE_STATUS_DB : update DB status (dummy)
+# STEP7_NOTIFY           : optional notifier
+# STEP8_HITL             : optional human approval / branching
+
+
+import time
+from airflow.utils.task_group import TaskGroup
 
 @dag(
     dag_id="example_ui_parallel_gantt",
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    tags=["ui", "gantt"],
+    tags=["semicon", "gantt"],
 )
 def example_ui_parallel_gantt():
-    """DAG designed to show a clear Gantt chart with parallel tasks.""" 
-
     @task
     def start():
-        print("Starting DAG")
+        print("[START] Gantt simulation for semicon equipments")
 
     @task
     def finish():
-        print("Finishing DAG")
+        print("[END] Gantt simulation")
 
     @task
-    def sleep_task(duration: int):
-        print(f"Sleeping for {duration} seconds...")
+    def simulate(equipment_id: str, duration: int):
+        print(f"[STEP4_DOWNLOAD] {equipment_id} long task (sleep={duration})")
         time.sleep(duration)
+        print(f"[STEP5_UPLOAD_S3] {equipment_id} upload complete")
 
     s = start()
-
-    with TaskGroup("group_long") as group_long:
-        sleep_task.override(task_id="long_3s")(3)
-        sleep_task.override(task_id="long_7s")(7)
-        sleep_task.override(task_id="long_10s")(10)
-
-    with TaskGroup("group_short") as group_short:
-        sleep_task.override(task_id="short_2s")(2)
-        sleep_task.override(task_id="short_5s")(5)
-
+    with TaskGroup("heavy") as heavy:
+        simulate.override(task_id="tool_a_heavy")("TOOL_A01", 10)
+        simulate.override(task_id="tool_b_heavy")("TOOL_B02", 7)
+    with TaskGroup("light") as light:
+        simulate.override(task_id="tool_c_light")("TOOL_C03", 4)
+        simulate.override(task_id="tool_d_light")("TOOL_D04", 2)
     f = finish()
-
-    s >> [group_long, group_short] >> f
-
+    s >> [heavy, light] >> f
 
 dag = example_ui_parallel_gantt()

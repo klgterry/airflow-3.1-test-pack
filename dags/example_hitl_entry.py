@@ -1,14 +1,16 @@
-
 from __future__ import annotations
 from datetime import datetime
-
 from airflow.decorators import dag, task
-from airflow.models.param import Param
 
-try:
-    from airflow.providers.standard.operators.hitl import HITLEntryOperator  # type: ignore
-except Exception:
-    HITLEntryOperator = None
+# Semicon simulation scenario (dummy, no real external systems):
+# STEP1_CONSUME          : consume Kafka-like message
+# STEP2_PARSE            : parse equipment/lot/period/filter
+# STEP3_STORE_MSG_DB     : store message meta to PostgreSQL (dummy)
+# STEP4_DOWNLOAD         : connect to equipment and download data (dummy)
+# STEP5_UPLOAD_S3        : upload data to S3 (dummy)
+# STEP6_UPDATE_STATUS_DB : update DB status (dummy)
+# STEP7_NOTIFY           : optional notifier
+# STEP8_HITL             : optional human approval / branching
 
 
 @dag(
@@ -16,44 +18,24 @@ except Exception:
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    params={
-        "default_priority": Param("medium", enum=["low", "medium", "high"]),
-    },
-    tags=["hitl", "entry"],
+    tags=["semicon", "hitl"],
 )
 def example_hitl_entry():
-    """HITL-like form entry example.
-
-    If HITLEntryOperator is unavailable, falls back to a simple dummy task.
-    """ 
+    @task
+    def get_parameters() -> dict:
+        params = {
+            "equipment_id": "TOOL_A01",
+            "lot_id": "LOT20251126-01",
+            "from_ts": "2025-11-26T00:00:00Z",
+            "to_ts": "2025-11-26T01:00:00Z",
+        }
+        print("[STEP8_HITL] simulated user input:", params)
+        return params
 
     @task
-    def prepare_question() -> str:
-        return "How should we prioritize this feature request?"
+    def run_with_params(params: dict):
+        print("[RUN] reprocess using params (dummy):", params)
 
-    question = prepare_question()
-
-    if HITLEntryOperator:
-        entry = HITLEntryOperator(
-            task_id="wait_for_input",
-            subject="Feature prioritization input",
-            body="{{ ti.xcom_pull(task_ids='prepare_question') }}",
-            params={
-                "priority": Param("medium", enum=["low", "medium", "high"]),
-                "comment": Param("", description="Why this priority?"),
-            },
-        )
-
-        @task
-        def consume_input(params_input: dict):
-            print("📥 Received HITL input:", params_input)
-
-        consume_input(entry.output.get("params_input"))
-    else:
-        @task
-        def fallback():
-            print("HITLEntryOperator not available. Using fallback.")
-        question >> fallback()
-
+    run_with_params(get_parameters())
 
 dag = example_hitl_entry()

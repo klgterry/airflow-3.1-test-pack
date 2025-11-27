@@ -1,8 +1,16 @@
-
 from __future__ import annotations
 from datetime import datetime
-
 from airflow.decorators import dag, task
+
+# Semicon simulation scenario (dummy, no real external systems):
+# STEP1_CONSUME          : consume Kafka-like message
+# STEP2_PARSE            : parse equipment/lot/period/filter
+# STEP3_STORE_MSG_DB     : store message meta to PostgreSQL (dummy)
+# STEP4_DOWNLOAD         : connect to equipment and download data (dummy)
+# STEP5_UPLOAD_S3        : upload data to S3 (dummy)
+# STEP6_UPDATE_STATUS_DB : update DB status (dummy)
+# STEP7_NOTIFY           : optional notifier
+# STEP8_HITL             : optional human approval / branching
 
 
 @dag(
@@ -10,20 +18,23 @@ from airflow.decorators import dag, task
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    tags=["asset"],
+    tags=["semicon", "asset"],
 )
 def example_asset_pipeline():
-    """Simple asset-like pipeline: produce → consume.""" 
+    @task
+    def produce() -> dict:
+        asset = {
+            "lot_id": "LOT20251126-01",
+            "equipment_ids": ["TOOL_A01", "TOOL_B02"],
+            "s3_base": "semicon/LOT20251126-01/",
+        }
+        print("[ASSET] produced:", asset)
+        return asset
 
     @task
-    def produce_asset() -> str:
-        return "asset_v1"
+    def consume(asset: dict):
+        print("[ASSET] consumed for reporting (dummy):", asset)
 
-    @task
-    def consume_asset(a: str):
-        print("Consuming asset:", a)
-
-    consume_asset(produce_asset())
-
+    consume(produce())
 
 dag = example_asset_pipeline()

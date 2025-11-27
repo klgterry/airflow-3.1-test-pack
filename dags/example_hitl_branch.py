@@ -1,13 +1,16 @@
-
 from __future__ import annotations
 from datetime import datetime
-
 from airflow.decorators import dag, task
 
-try:
-    from airflow.providers.standard.operators.hitl import HITLBranchOperator  # type: ignore
-except Exception:
-    HITLBranchOperator = None
+# Semicon simulation scenario (dummy, no real external systems):
+# STEP1_CONSUME          : consume Kafka-like message
+# STEP2_PARSE            : parse equipment/lot/period/filter
+# STEP3_STORE_MSG_DB     : store message meta to PostgreSQL (dummy)
+# STEP4_DOWNLOAD         : connect to equipment and download data (dummy)
+# STEP5_UPLOAD_S3        : upload data to S3 (dummy)
+# STEP6_UPDATE_STATUS_DB : update DB status (dummy)
+# STEP7_NOTIFY           : optional notifier
+# STEP8_HITL             : optional human approval / branching
 
 
 @dag(
@@ -15,52 +18,20 @@ except Exception:
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    tags=["hitl", "branch"],
+    tags=["semicon", "hitl"],
 )
 def example_hitl_branch():
-    """HITL-like branching example.
-
-    Human chooses which department(s) receive budget.
-    Fallback: run all departments.
-    """ 
+    @task
+    def choose_targets() -> list:
+        targets = ["TOOL_A01", "TOOL_B02"]  # simulate user picking equipments
+        print("[STEP8_HITL] chosen equipments:", targets)
+        return targets
 
     @task
-    def announce_budget():
-        return "Choose which departments should receive budget."
+    def process_equipment(eq: str):
+        print(f"[HITL_BRANCH] reprocess for equipment={eq} (dummy)")
 
-    @task
-    def allocate_marketing():
-        print("📢 Allocating budget to Marketing.")
-
-    @task
-    def allocate_rd():
-        print("🔬 Allocating budget to R&D.")
-
-    @task
-    def allocate_infra():
-        print("🏗️ Allocating budget to Infra.")
-
-    start = announce_budget()
-    m = allocate_marketing()
-    r = allocate_rd()
-    i = allocate_infra()
-
-    if HITLBranchOperator:
-        branch = HITLBranchOperator(
-            task_id="choose_departments",
-            subject="Budget allocation decision",
-            body="{{ ti.xcom_pull(task_ids='announce_budget') }}",
-            options=["Marketing", "R&D", "Infra"],
-            options_mapping={
-                "Marketing": [m.task_id],
-                "R&D": [r.task_id],
-                "Infra": [i.task_id],
-            },
-            multiple=True,
-        )
-        start >> branch >> [m, r, i]
-    else:
-        start >> [m, r, i]
-
+    targets = choose_targets()
+    process_equipment.expand(eq=targets)
 
 dag = example_hitl_branch()
