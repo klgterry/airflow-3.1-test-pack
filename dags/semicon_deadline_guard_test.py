@@ -1,9 +1,11 @@
 from __future__ import annotations
 from datetime import datetime
-import time, random
+import time
+import random
 from airflow.decorators import dag, task
 
 DEADLINE_SECONDS = 30
+
 
 @dag(
     dag_id="semicon_deadline_guard_test",
@@ -13,6 +15,11 @@ DEADLINE_SECONDS = 30
     tags=["semicon", "new-feature", "deadline-test"],
 )
 def semicon_deadline_guard_test():
+    """Deadline 기능 강화 테스트 DAG.
+
+    - 여러 장비를 (사실상) 병렬로 처리한다고 가정
+    - 전체 실행 시간이 DEADLINE_SECONDS 를 넘으면 RuntimeError 로 FAIL
+    """
 
     @task
     def start_timer() -> float:
@@ -46,5 +53,6 @@ def semicon_deadline_guard_test():
     d2 = process_equipment.override(task_id="tool_b")("TOOL_B02")
     d3 = process_equipment.override(task_id="tool_c")("TOOL_C03")
     check_deadline(start_ts, [d1, d2, d3])
+
 
 dag = semicon_deadline_guard_test()
